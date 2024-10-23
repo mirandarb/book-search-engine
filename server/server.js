@@ -1,21 +1,32 @@
 const express = require('express');
-const path = require('path');
-const db = require('./config/connection');
-const routes = require('./routes');
+const { ApolloServer } = require('apollo-server-express');
+const { typeDefs, resolvers } = require('./schemas'); // Adjust the path as needed
+require('dotenv').config();
 
-const app = express();
-const PORT = process.env.PORT || 3001;
+const startServer = async () => {
+  const app = express();
 
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+  // Create a new Apollo Server instance
+  const server = new ApolloServer({
+    typeDefs,
+    resolvers,
+    context: ({ req }) => {
+      // Your context setup here
+    },
+  });
 
-// if we're in production, serve client/build as static assets
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
-}
+  // Start the server
+  await server.start();
 
-app.use(routes);
+  // Apply the Apollo GraphQL middleware to the Express app
+  server.applyMiddleware({ app, path: '/' });
 
-db.once('open', () => {
-  app.listen(PORT, () => console.log(`🌍 Now listening on localhost:${PORT}`));
-});
+  const PORT = process.env.PORT || 3001;
+
+  app.listen(PORT, () => {
+    console.log(`🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}`);
+  });
+};
+
+// Call the start function
+startServer();

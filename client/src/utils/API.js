@@ -1,127 +1,101 @@
-import { gql } from '@apollo/client';
-import { client } from './apolloClient'; // Adjust the import based on your Apollo Client setup
-
-// GraphQL Queries and Mutations
-const GET_ME = gql`
-  query me {
-    me {
-      id
-      username
-      email
-      savedBooks {
-        id
-        title
-        author
-        description
-        image
-        link
-      }
-    }
-  }
-`;
-
-const CREATE_USER = gql`
-  mutation createUser($username: String!, $email: String!, $password: String!) {
-    signup(username: $username, email: $email, password: $password) {
-      token
-      user {
-        id
-        username
-        email
-      }
-    }
-  }
-`;
-
-const LOGIN_USER = gql`
-  mutation login($email: String!, $password: String!) {
-    login(email: $email, password: $password) {
-      token
-      user {
-        id
-        username
-        email
-      }
-    }
-  }
-`;
-
-const SAVE_BOOK = gql`
-  mutation saveBook($bookData: BookInput!) {
-    saveBook(bookData: $bookData) {
-      id
-      title
-      author
-      description
-      image
-      link
-    }
-  }
-`;
-
-const DELETE_BOOK = gql`
-  mutation deleteBook($bookId: ID!) {
-    removeBook(bookId: $bookId) {
-      id
-    }
-  }
-`;
-
-// API Functions
+// route to get logged in user's info (needs the token)
 export const getMe = async (token) => {
-  return client.query({
-    query: GET_ME,
-    context: {
-      headers: {
-        authorization: `Bearer ${token}`,
-      },
+  const response = await fetch('/api/users/me', {
+    headers: {
+      'Content-Type': 'application/json',
+      authorization: `Bearer ${token}`,
     },
   });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch user data');
+  }
+
+  return response.json(); // Return parsed JSON data
 };
 
 export const createUser = async (userData) => {
-  const { data } = await client.mutate({
-    mutation: CREATE_USER,
-    variables: { ...userData },
+  const response = await fetch('/api/users', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(userData),
   });
-  return data.signup;
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(`Failed to create user: ${errorData.message}`);
+  }
+
+  return response.json();
 };
+
 
 export const loginUser = async (userData) => {
-  const { data } = await client.mutate({
-    mutation: LOGIN_USER,
-    variables: { ...userData },
+  const response = await fetch('/api/users/login', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(userData),
   });
-  return data.login;
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(`Login failed: ${errorData.message}`);
+  }
+
+  return response.json();
 };
 
+// save book data for a logged in user
 export const saveBook = async (bookData, token) => {
-  const { data } = await client.mutate({
-    mutation: SAVE_BOOK,
-    variables: { bookData },
-    context: {
-      headers: {
-        authorization: `Bearer ${token}`,
-      },
+  const response = await fetch('/api/users/books', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      authorization: `Bearer ${token}`,
     },
+    body: JSON.stringify(bookData),
   });
-  return data.saveBook;
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(`Failed to save book: ${errorData.message}`);
+  }
+
+  return response.json();
 };
 
+
+// remove saved book data for a logged in user
 export const deleteBook = async (bookId, token) => {
-  const { data } = await client.mutate({
-    mutation: DELETE_BOOK,
-    variables: { bookId },
-    context: {
-      headers: {
-        authorization: `Bearer ${token}`,
-      },
+  const response = await fetch(`/api/users/books/${bookId}`, {
+    method: 'DELETE',
+    headers: {
+      authorization: `Bearer ${token}`,
     },
   });
-  return data.removeBook;
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(`Failed to delete book: ${errorData.message}`);
+  }
+
+  return response.json();
 };
 
-// Make a search to Google Books API
-export const searchGoogleBooks = (query) => {
-  return fetch(`https://www.googleapis.com/books/v1/volumes?q=${query}`);
+
+// make a search to google books api
+// https://www.googleapis.com/books/v1/volumes?q=harry+potter
+export const searchGoogleBooks = async (query) => {
+  const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${query}`);
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(`Error fetching books: ${errorData.error.message}`);
+  }
+
+  return response.json(); // Return the parsed JSON data directly
 };
